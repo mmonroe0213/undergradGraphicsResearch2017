@@ -1,8 +1,9 @@
 from PIL import Image
+import datetime
 
 def gaussianBlur(image, kernel):
     myImage = Image.open(image)
-    blurredImage = Image.new(myImage.mode, (myImage.width, myImage.height))
+    blurredImage = Image.open(image)
     for row in range(3, myImage.height-2):
         for col in range(3, myImage.width-2):
             pixels = [[], [], [], [], []]
@@ -19,11 +20,11 @@ def gaussianBlur(image, kernel):
                     b += pixels[i][j][2] * kernel[i][j]
             blurredPixel = (int(r), int(g), int(b))
             blurredImage.putpixel((col,row),blurredPixel)
-    blurredImage.save("./blurredImage1.png")
+    blurredImage.save("./blurredImage" + datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S") + ".png")
 
 def main():
 ##    image = input("Enter image name:")
-    image = "render1000P_small.png"
+    image = "render50P_half_size.png"
     kernel = [[0.003765, 0.015019, 0.023792, 0.015019, 0.003765],
               [0.015019, 0.059912, 0.094907, 0.059912, 0.015019],
               [0.023792, 0.094907, 0.150342, 0.094907, 0.023792],
