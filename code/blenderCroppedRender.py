@@ -2,6 +2,9 @@ import bpy
 import math
 import random
 
+
+bpy.data.scenes[0].render.engine = 'CYCLES':
+
 print('-'*50)
 
 # gather data
