@@ -1,35 +1,44 @@
-from PIL import Image
+import bpy
 import datetime
 
-def gaussianBlur(image, kernel):
-    myImage = Image.open(image)
-    blurredImage = Image.open(image)
-    for row in range(3, myImage.height-2):
-        for col in range(3, myImage.width-2):
+image = "C:/Users/Michael/Documents/Research/src/images/render50P_half_size.png"
+myImage = bpy.data.images.load(image)
+w,h = myImage.size[0], myImage.size[1]
+
+def gaussianBlur(kernel):
+    global w,h, myImage
+    pix = [v for v in myImage.pixels]
+    blur_pix = [v for v in myImage.pixels]
+    bpy.data.images.remove(myImage, do_unlink = True)
+    for row in range(3, h-2):
+        for col in range(3, w-2):
             pixels = [[], [], [], [], []]
             for i in range(-2, 3):
                 for j in range(-2, 3):
-                    pixels[i + 2].append(myImage.getpixel((col+j,row+i)))
-            r = 0
-            g = 0
-            b = 0
+                    pixels[i + 2].append([pix[(((row+i)*w)+(col+j))*4], 
+                                          pix[(((row+i)*w)+(col+j))*4 + 1], 
+                                          pix[(((row+i)*w)+(col+j))*4 + 2]])
+            new_pixel = [0, 0, 0]
             for i in range(5):
                 for j in range(5):
-                    r += pixels[i][j][0] * kernel[i][j]
-                    g += pixels[i][j][1] * kernel[i][j]
-                    b += pixels[i][j][2] * kernel[i][j]
-            blurredPixel = (int(r), int(g), int(b))
-            blurredImage.putpixel((col,row),blurredPixel)
-    blurredImage.save("./blurredImage" + datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S") + ".png")
-
+                    for k in range(3):
+                        new_pixel[k] += pixels[i][j][k] * kernel[i][j]
+            #print(pix[row * w + col], new_pixel)
+            for i in range(3):
+                blur_pix[((row * w) + col)*4 + i] = new_pixel[i]
+    return blur_pix
+    
 def main():
 ##    image = input("Enter image name:")
-    image = "render50P_half_size.png"
+    global w, h
     kernel = [[0.003765, 0.015019, 0.023792, 0.015019, 0.003765],
               [0.015019, 0.059912, 0.094907, 0.059912, 0.015019],
               [0.023792, 0.094907, 0.150342, 0.094907, 0.023792],
               [0.015019, 0.059912, 0.094907, 0.059912, 0.015019],
               [0.003765, 0.015019, 0.023792, 0.015019, 0.003765]]
-    gaussianBlur(image, kernel)
+    bpy.data.images.new("blurredImage", w, h)
+    blurredImage = bpy.data.images["blurredImage"]
+    blurredImage.pixels = gaussianBlur(kernel)
+    blurredImage.save_render("C:/Users/Michael/Documents/Research/src/images/blurredImage" + datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S") + ".png")
 
 main()
