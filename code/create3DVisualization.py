@@ -14,7 +14,7 @@ bme = bmesh.new()
 # do modifications here
 for v in range(h):
     for u in range(w):
-        z = imArray[((v * w) + u) * 4] * 10
+        z = imArray[((v * w) + u) * 4] * 50
         bme.verts.new((u-w/2, v-h/2, z))
 
 bme.verts.ensure_lookup_table()
