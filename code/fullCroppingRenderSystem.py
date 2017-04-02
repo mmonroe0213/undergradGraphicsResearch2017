@@ -21,6 +21,8 @@ cimg = bpy.data.images['combined']
 cpix = [0 for _ in range(rw) for _ in range(rh) for _ in range(4)]
 ctot = [0 for _ in range(rw) for _ in range(rh) for _ in range(4)]
 counts = [0 for _ in range(rw) for _ in range(rh)]
+prev_pix = [v for v in cpix]
+difImArray = [0 for _ in range(rw) for _ in range(rh) for _ in range(4)]
 
 # set alpha
 for ix in range(rw):
@@ -60,13 +62,13 @@ def renderRegion(x,y,w,h,s, fn):
     scene.cycles.seed = random.randint(0,100000)
     
     # tell blender to render to file located in same folder
-    render.filepath = bpy.path.abspath('//../../images/%s' % fn)
+    render.filepath = bpy.path.abspath('//../images/%s' % fn)
     
     # do the render!
     bpy.ops.render.render(write_still=True)
     
     # load render into new image (do be deleted)
-    img = bpy.data.images.load('//../../images/%s' % fn)
+    img = bpy.data.images.load('//../images/%s' % fn)
     pix = [v*s for v in img.pixels]
     bpy.data.images.remove(img, do_unlink=True) # delete render image
     
@@ -82,12 +84,13 @@ def renderRegion(x,y,w,h,s, fn):
                 cpix[idx4+ic] = math.pow(ctot[idx4+ic] / counts[idx], 1.0)
 
 
-def gaussianBlur(kernel):
-    global cpix
+def gaussianBlur(kernel,x,y,w,h):
+    global cpix, blur_pix
     global rw, rh
-    blur_pix = [v for v in cpix]
-    for row in range(3, rh-2):
-        for col in range(3, rw-2):
+    lx = x - math.floor(w/2)
+    ty = y - math.floor(h/2)
+    for row in range(ty+2, h-2):
+        for col in range(lx+2, w-2):
             pixels = [[], [], [], [], []]
             for i in range(-2, 3):
                 for j in range(-2, 3):
@@ -104,18 +107,22 @@ def gaussianBlur(kernel):
                 blur_pix[((row * rw) + col)*4 + i] = new_pixel[i]
     return blur_pix
 
-def imageDif(im1, im2):
+def imageDif(im1, im2, x, y, w, h):
     #print(image1, image2)
+    global difImArray
     global rw, rh
     maxDif = 0
     maxTuples = [(0,0,0,0)]
-    difImArray = [0 for _ in range(rw) for _ in range(rh) for _ in range(4)]
 #    for ix in range(rw):
 #        for iy in range(rh):
 #            difImArray[(iy*rw+ix)*4+3] = 1
-    
-    for row in range(rh):
-        for col in range(rw):
+
+    lx = x - math.floor(w/2)
+    ty = y - math.floor(h/2)
+    rx = x + math.ceil(w/2)
+    by = y + math.ceil(h/2)
+    for row in range(ty, by):
+        for col in range(lx, rx):
             pix1 = [im1[((row*rw)+col)*4], im1[((row*rw)+col)*4 + 1], im1[((row*rw)+col)*4 + 2]]
             pix2 = [im2[((row*rw)+col)*4], im2[((row*rw)+col)*4 + 1], im2[((row*rw)+col)*4 + 2]]
             #print(pix1, pix2)
@@ -127,44 +134,57 @@ def imageDif(im1, im2):
             difImArray[((row*rw)+col)*4 + 1] = ave;
             difImArray[((row*rw)+col)*4 + 2] = ave;
             difImArray[((row*rw)+col)*4 + 3] = 1;
-            if ave > maxDif:
-                #print("Average: ", ave)
-                #print("Max Dif: ", maxDif)
-                maxDif = ave
-                maxTuples[0] = (col,row,50,50)
+    for row in range(rh):
+        for col in range(rw):
+            val = difImArray[((row*rw)+col)*4]
+            if val >= maxDif:
+#                print("Average: ", val)
+#                print("Max Dif: ", maxDif)
+                maxDif = val
+                maxTuples[0] = (col,row,100,100)
                 #print(col, row)
     bpy.data.images.new("difImage", rw, rh)
     difIm = bpy.data.images["difImage"]
     difIm.pixels = difImArray
-    difIm.save_render("//../../images/difImageGrey" + datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S") + ".png")
+    difIm.save_render(bpy.path.abspath('//../images/difImage.png'))
     bpy.data.images.remove(difIm, do_unlink=True)
     return maxTuples
     
-    
 # render full low-res
-renderRegion(rw//2,rh//2,rw,rh,4, 'full.png')
+x,y,w,h,s = rw//2,rh//2,rw,rh,10
+renderRegion(x,y,w,h,s, 'full.png')
 
 kernel = [[0.003765, 0.015019, 0.023792, 0.015019, 0.003765],
           [0.015019, 0.059912, 0.094907, 0.059912, 0.015019],
           [0.023792, 0.094907, 0.150342, 0.094907, 0.023792],
           [0.015019, 0.059912, 0.094907, 0.059912, 0.015019],
           [0.003765, 0.015019, 0.023792, 0.015019, 0.003765]]
+          
+prev_pix = cpix[:]
+renderRegion(x,y,w,h,s, 'full2.png')
 
-for _ in range(2):
-    bpy.data.images.new("blurredImage", rw, rh)
-    blurredImage = bpy.data.images["blurredImage"]
-    blurredImage.pixels = gaussianBlur(kernel)
-    blurredImage.save_render("//../../images/blurredImage.png")
+for idx in range(3):
+#    print("Blurring Image")
+#    if 'blurredImage' in bpy.data.images:
+#        bpy.data.images.remove(bpy.data.images['blurredImage'], do_unlink=True)
+#    bpy.data.images.new("blurredImage", rw, rh)
+#    blurredImage = bpy.data.images["blurredImage"]
+#    blurredImage.pixels = gaussianBlur(kernel,x,y,w,h)
+#    blurredImage.save_render(bpy.path.abspath('//../images/blurredImage.png'))
 
-    maxTuple = imageDif(cpix, blurredImage.pixels)
-    bpy.data.images.remove(blurredImage, do_unlink=True)
-
+    print("Finding Dif Image")
+    maxTuple = imageDif(cpix,prev_pix,x,y,w,h)
+    prev_pix = cpix[:]
+    print(maxTuple)
+#    bpy.data.images.remove(blurredImage, do_unlink=True)
+    
     # render partial high-res
     x,y,w,h,s = maxTuple[0][0],maxTuple[0][1],maxTuple[0][2],maxTuple[0][3],40
     renderRegion(x,y,w,h,s, 'partial.png')
 
     # update combined (aggregate) image
     cimg.pixels = cpix
-    cimg.save_render("//../../images/combined.png")
+    cimg.save_render(bpy.path.abspath('//../images/combined' + str(idx) + '.png'))
 
+print((2,2) != (2,2))
 print('finished')
