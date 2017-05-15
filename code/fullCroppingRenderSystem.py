@@ -23,6 +23,7 @@ ctot = [0 for _ in range(rw) for _ in range(rh) for _ in range(4)]
 counts = [0 for _ in range(rw) for _ in range(rh)]
 prev_pix = [v for v in cpix]
 difImArray = [0 for _ in range(rw) for _ in range(rh) for _ in range(4)]
+timesSampled = [0 for _ in range(rw) for _ in range(rh) for _ in range(4)]
 
 # set alpha
 for ix in range(rw):
@@ -109,7 +110,7 @@ def gaussianBlur(kernel,x,y,w,h):
 
 def imageDif(im1, im2, x, y, w, h):
     #print(image1, image2)
-    global difImArray
+    global difImArray, timesSampled
     global rw, rh
     maxDif = 0
     maxTuples = [(0,0,0,0)]
@@ -118,9 +119,17 @@ def imageDif(im1, im2, x, y, w, h):
 #            difImArray[(iy*rw+ix)*4+3] = 1
 
     lx = x - math.floor(w/2)
+    if lx < 0:
+        lx = 0
     ty = y - math.floor(h/2)
+    if ty < 0:
+        ty = 0
     rx = x + math.ceil(w/2)
+    if rx > rw:
+        rx = rw
     by = y + math.ceil(h/2)
+    if by > rh:
+        by = rh
     for row in range(ty, by):
         for col in range(lx, rx):
             pix1 = [im1[((row*rw)+col)*4], im1[((row*rw)+col)*4 + 1], im1[((row*rw)+col)*4 + 2]]
@@ -130,10 +139,14 @@ def imageDif(im1, im2, x, y, w, h):
             g = (pix2[1] - pix1[1]) ** 2
             b = (pix2[2] - pix1[2]) ** 2
             ave = (r + g + b) / 3
-            difImArray[((row*rw)+col)*4] = ave;
-            difImArray[((row*rw)+col)*4 + 1] = ave;
-            difImArray[((row*rw)+col)*4 + 2] = ave;
-            difImArray[((row*rw)+col)*4 + 3] = 1;
+            difImArray[((row*rw)+col)*4] = ave
+            difImArray[((row*rw)+col)*4 + 1] = ave
+            difImArray[((row*rw)+col)*4 + 2] = ave
+            difImArray[((row*rw)+col)*4 + 3] = 1
+            timesSampled[((row*rw)+col)*4] += 0.007
+            timesSampled[((row*rw)+col)*4 + 1] += 0.007
+            timesSampled[((row*rw)+col)*4 + 2] += 0.007
+            timesSampled[((row*rw)+col)*4 + 3] = 1
     for row in range(rh):
         for col in range(rw):
             val = difImArray[((row*rw)+col)*4]
@@ -141,7 +154,7 @@ def imageDif(im1, im2, x, y, w, h):
 #                print("Average: ", val)
 #                print("Max Dif: ", maxDif)
                 maxDif = val
-                maxTuples[0] = (col,row,100,100)
+                maxTuples[0] = (col,row,300,300)
                 #print(col, row)
     bpy.data.images.new("difImage", rw, rh)
     difIm = bpy.data.images["difImage"]
@@ -151,8 +164,10 @@ def imageDif(im1, im2, x, y, w, h):
     return maxTuples
     
 # render full low-res
+totalSamples = 6020
 x,y,w,h,s = rw//2,rh//2,rw,rh,10
 renderRegion(x,y,w,h,s, 'full.png')
+totalSamples = totalSamples - s
 
 kernel = [[0.003765, 0.015019, 0.023792, 0.015019, 0.003765],
           [0.015019, 0.059912, 0.094907, 0.059912, 0.015019],
@@ -162,8 +177,8 @@ kernel = [[0.003765, 0.015019, 0.023792, 0.015019, 0.003765],
           
 prev_pix = cpix[:]
 renderRegion(x,y,w,h,s, 'full2.png')
-
-for idx in range(3):
+totalSamples = totalSamples - s
+while totalSamples > 0:
 #    print("Blurring Image")
 #    if 'blurredImage' in bpy.data.images:
 #        bpy.data.images.remove(bpy.data.images['blurredImage'], do_unlink=True)
@@ -181,10 +196,17 @@ for idx in range(3):
     # render partial high-res
     x,y,w,h,s = maxTuple[0][0],maxTuple[0][1],maxTuple[0][2],maxTuple[0][3],40
     renderRegion(x,y,w,h,s, 'partial.png')
+    totalSamples = totalSamples - s
 
     # update combined (aggregate) image
     cimg.pixels = cpix
-    cimg.save_render(bpy.path.abspath('//../images/combined' + str(idx) + '.png'))
+    cimg.save_render(bpy.path.abspath('//../images/combined.png'))
 
 print((2,2) != (2,2))
 print('finished')
+
+bpy.data.images.new("timesSampled", rw, rh)
+tSamp = bpy.data.images["timesSampled"]
+tSamp.pixels = timesSampled
+tSamp.save_render(bpy.path.abspath('//../images/timesSampled2.png'))
+bpy.data.images.remove(tSamp, do_unlink=True)
